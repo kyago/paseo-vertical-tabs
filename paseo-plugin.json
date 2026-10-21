@@ -1,7 +1,13 @@
 {
   "id": "vertical-tabs",
   "name": "Vertical Tabs",
-  "description": "워크스페이스의 agent 탭을 세로 목록으로 보여주는 패널. explorer 컬럼에 열어두고 클릭으로 agent를 전환한다.",
+  "description": "Turns the workspace tab bar into vertical tabs on the left.",
+  "translations": {
+    "ko": {
+      "name": "세로 탭",
+      "description": "워크스페이스의 가로 탭 바를 왼쪽 세로 탭으로 바꾼다."
+    }
+  },
   "media": [],
   "requirements": {
     "paseo": ">=0.12.0"
