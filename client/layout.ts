@@ -19,11 +19,16 @@ const ROW = `[data-testid="workspace-tabs-row"]${NOT_EXPLORER}`;
 const COLUMN = `${PANE} > div:has(> ${ROW})`;
 const SCROLL = `${ROW} [data-testid="workspace-tabs-scroll"]`;
 const TAB = '[data-testid^="workspace-tab-"]:not([data-testid^="workspace-tab-switcher"])';
+const NEW_TAB = '[data-testid="workspace-new-tab-button"]';
+const TOOLS = '[data-testid="workspace-split-pane-menu"], [data-testid="workspace-maximize-pane"], [data-testid="workspace-restore-pane"]';
+const TOOL_W = 20; // 툴바 아이콘 버튼 한 변(smallIconButtonChromeFrameSize)
+// 탭이 가로 한 줄에 다 들어가면(requiresHorizontalScrollFallback=false) Paseo는 +를 탭 목록 끝에 두고 툴바(…)에서 뺀다.
+const INLINE = `html:not(.${COLLAPSED_CLASS}) ${ROW}:has([data-testid="workspace-tabs-scroll"] ${NEW_TAB}):has(${TOOLS})`;
 
 /*
  DOM(0.12.0):
  pane > [A: div > (bg, drag, ROW)] + [B: 세션 내용]
- ROW > (measure, scrollContainer > SCROLL > content > tabSlot* + newTab, splitActions)
+ ROW > (measure, scrollContainer > SCROLL > content > tabSlot* + newTab?, toolbar(newTab?, maximize?, splitMenu))
 */
 export function css(): string {
   const w = `var(${VAR}, ${DEFAULT_W}px)`;
@@ -52,6 +57,11 @@ ${ROW} [data-testid^="workspace-tabs-scroll-shade"] { display: none !important; 
 ${ROW} > div:last-child { flex-direction: row !important; align-items: center !important; padding: 2px 4px 4px !important; margin: 0 !important; gap: 2px; }
 ${ROW} [data-testid="workspace-new-tab-button"] { flex: 1 1 0% !important; width: auto !important; height: 28px !important; flex-direction: row !important; justify-content: center !important; gap: 6px; border-radius: 6px; border: 1px dashed var(--colors-border, currentColor); }
 ${ROW} [data-testid="workspace-new-tab-button"]:hover { background: var(--colors-surface1, rgba(127,127,127,.15)); }
+/* +가 탭 목록 끝에 있을 때: 툴바를 + 오른쪽에 앵커로 붙여 탭이 많을 때와 같은 한 줄 모양으로 맞춘다. */
+${INLINE} { anchor-scope: --pvt-new-tab; --pvt-tools-w: ${TOOL_W}px; }
+${INLINE}:has([data-testid="workspace-split-pane-menu"]):has([data-testid="workspace-maximize-pane"], [data-testid="workspace-restore-pane"]) { --pvt-tools-w: ${TOOL_W * 2 + 2}px; }
+${INLINE} [data-testid="workspace-tabs-scroll"] ${NEW_TAB} { anchor-name: --pvt-new-tab; margin-right: calc(var(--pvt-tools-w) + 2px) !important; }
+${INLINE} > div:last-child:not(:has(> [data-testid="workspace-tabs-scroll"])) { position: absolute !important; position-anchor: --pvt-new-tab; top: anchor(top); height: anchor-size(height); left: calc(anchor(right) + 2px); width: auto !important; padding: 0 !important; }
 /* 맨 위 접기/펼치기 버튼. 가짜 요소라 클릭은 enablePointer가 좌표로 판정한다. */
 ${ROW}::before { content: "‹"; position: absolute; top: ${TOGGLE_INSET}px; right: ${TOGGLE_INSET}px; width: ${TOGGLE}px; height: ${TOGGLE}px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 18px; line-height: 1; color: var(--colors-foreground-muted, currentColor); cursor: pointer; z-index: 50; }
 ${ROW}:hover::before { background: var(--colors-surface1, rgba(127,127,127,.15)); }
