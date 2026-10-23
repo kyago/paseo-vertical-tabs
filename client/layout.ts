@@ -96,8 +96,41 @@ function write(key: string, value: string): void {
   } catch {}
 }
 
+// 연결된 호스트마다 이 플러그인 인스턴스가 하나씩 같은 window에서 돈다. 스타일·포인터 핸들러·on 상태는 window에 하나뿐이라
+// 인스턴스끼리 공유하고 마지막 인스턴스가 나갈 때만 걷는다. (예전엔 한 호스트가 끊기면 그 인스턴스 cleanup이 스타일을 지워 전부 가로로 돌아갔다)
+const SHARED = "__paseoVerticalTabs";
+type Shared = { on: boolean; listeners: Set<(on: boolean) => void>; disablePointer: () => void };
+const g = globalThis as { [SHARED]?: Shared };
+
+/** 인스턴스 등록. onChange는 전환 때 모든 인스턴스에 불린다(헤더 버튼 갱신). 반환값은 해제 함수. */
+export function acquire(onChange: (on: boolean) => void): () => void {
+  let s = g[SHARED];
+  if (!s) {
+    s = g[SHARED] = { on: isOn(), listeners: new Set(), disablePointer: () => {} };
+    s.disablePointer = enablePointer(() => setCollapsed(!isCollapsed()));
+  }
+  const shared = s;
+  shared.listeners.add(onChange);
+  apply(shared.on); // 나중에 로드된 번들의 CSS로 갈아끼운다
+  return () => {
+    if (!shared.listeners.delete(onChange) || shared.listeners.size) return;
+    shared.disablePointer();
+    apply(false);
+    delete g[SHARED];
+  };
+}
+
+export function toggle(): void {
+  const s = g[SHARED];
+  if (!s) return;
+  s.on = !s.on;
+  setOn(s.on);
+  apply(s.on);
+  for (const l of s.listeners) l(s.on);
+}
+
 export function isOn(): boolean {
-  return read(KEY) !== "0";
+  return g[SHARED]?.on ?? read(KEY) !== "0";
 }
 
 export function setOn(on: boolean): void {
