@@ -2,9 +2,9 @@
 
 A Paseo plugin that turns the workspace's horizontal tab bar into vertical tabs on the left. Tabs stack in a resizable column on the left, and the session sits on the right.
 
-- **Toggle horizontal/vertical:** the header button (`Switch to horizontal tabs` / `Switch to vertical tabs`) or ⌘K `Toggle vertical tabs`. Saved per device; on by default after install.
-- **Collapse/expand:** the `‹`/`›` button at the top of the column, or ⌘K `Collapse/expand vertical tabs`. Collapsed, a 36px rail keeps the tab icons (status dots), and clicking still switches tabs.
-- **Width:** drag the column's right edge (140–600px, saved).
+- **Toggle horizontal/vertical:** ⌘K `Toggle vertical tabs`, or Settings → Plugins → Vertical Tabs. Saved per device; on by default after install.
+- **Collapse/expand:** the `‹`/`›` button at the top of the column, ⌘K `Collapse/expand vertical tabs`, or the settings screen. Collapsed, a 36px rail keeps the tab icons (status dots), and clicking still switches tabs.
+- **Width:** drag the column's right edge (140–600px, saved); it highlights on hover, and a double-click resets it to 220px. Presets are also in the settings screen.
 - **Reorder by drag:** drop on the top half of a tab to place before it, the bottom half to place after it. A horizontal line shows where the tab will land.
 - **Languages:** English and Korean, following the app language.
 - **Only on its own host:** when the app is connected to several hosts, vertical tabs apply only to workspaces of the host where the plugin is installed. Workspaces of other hosts keep Paseo's horizontal tabs.

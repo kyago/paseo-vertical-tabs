@@ -12,8 +12,9 @@ const TOGGLE_INSET = 4;
 const VAR = "--paseo-vertical-tabs-width";
 const MIN_W = 140;
 const MAX_W = 600;
-const DEFAULT_W = 220;
+export const DEFAULT_W = 220;
 const HANDLE = 6;
+const HANDLE_ATTR = "data-pvt-handle-hover";
 // 오른쪽 파일 탐색기(workspace-explorer-sidebar) 안은 제외: 그쪽 탭(파일/변경 사항)은 가로 유지.
 const NOT_EXPLORER = ':not([data-testid="workspace-explorer-sidebar"] *)';
 // :has() 안에서 쓰는 탭 행(범위 없음). :has(범위 행)은 "자손 중 범위 요소"라 뜻이 달라진다.
@@ -74,7 +75,9 @@ ${COLUMN} { position: absolute !important; left: 0; bottom: 0; top: anchor(--pvt
 ${CONTENT} { margin-left: ${w} !important; }
 /* 탭 바 밑의 창 드래그 배경은 없앤다. 컬럼이 drag 영역이면 탭·손잡이·토글이 포인터 이벤트를 못 받는다. */
 ${COLUMN} > div[style*="app-region: drag"] { display: none !important; }
-${COLUMN}::after { content: ""; position: absolute; top: 0; bottom: 0; right: -${HANDLE / 2}px; width: ${HANDLE}px; cursor: col-resize; z-index: 50; app-region: no-drag; -webkit-app-region: no-drag; }
+${COLUMN}::after { content: ""; position: absolute; top: 0; bottom: 0; right: -${HANDLE / 2}px; width: ${HANDLE}px; cursor: col-resize; z-index: 50; app-region: no-drag; -webkit-app-region: no-drag; background: linear-gradient(var(--pvt-handle, transparent), var(--pvt-handle, transparent)) center / 2px 100% no-repeat; }
+/* 손잡이 위·크기 조절 중(속성은 끝날 때까지 유지): 경계선을 강조색으로(더블클릭하면 기본 너비) */
+${COLUMN}[${HANDLE_ATTR}] { --pvt-handle: var(--colors-accent, #3b82f6); }
 ${ROW} {
   position: relative;
   flex-direction: column !important; align-items: stretch !important; flex: 1 1 auto !important;
@@ -265,7 +268,11 @@ function clampWidth(w: number): number {
   return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
 }
 
-function setWidth(w: number, persist: boolean): void {
+export function getWidth(): number {
+  return clampWidth(Number(read(WIDTH_KEY)) || DEFAULT_W);
+}
+
+export function setWidth(w: number, persist: boolean): void {
   const px = clampWidth(w);
   globalThis.document?.documentElement.style.setProperty(VAR, `${px}px`);
   if (persist) write(WIDTH_KEY, String(px));
@@ -292,6 +299,19 @@ export function enablePointer(onToggleCollapse: () => void): () => void {
   const doc = globalThis.document;
   if (!doc) return () => {};
   let column: HTMLElement | null = null;
+  let hovered: HTMLElement | null = null;
+  const setHovered = (el: HTMLElement | null) => {
+    if (el === hovered) return;
+    hovered?.removeAttribute(HANDLE_ATTR);
+    hovered = el;
+    el?.setAttribute(HANDLE_ATTR, "");
+  };
+  /** 포인터가 탭 컬럼 오른쪽 경계(::after 손잡이) 위에 있으면 그 컬럼. */
+  const handleAt = (e: PointerEvent | MouseEvent): HTMLElement | null => {
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    if (!target || !doc.getElementById(STYLE_ID) || isCollapsed() || !target.matches(current().COLUMN)) return null;
+    return Math.abs(e.clientX - target.getBoundingClientRect().right) <= HANDLE ? target : null;
+  };
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0 || !doc.getElementById(STYLE_ID)) return;
     const target = e.target instanceof HTMLElement ? e.target : null;
@@ -308,15 +328,16 @@ export function enablePointer(onToggleCollapse: () => void): () => void {
       }
       return;
     }
-    if (!target.matches(COLUMN) || isCollapsed()) return;
-    const right = target.getBoundingClientRect().right;
-    if (Math.abs(e.clientX - right) > HANDLE) return; // ::after 손잡이 영역만
+    if (!target.matches(COLUMN) || !handleAt(e)) return; // ::after 손잡이 영역만
     column = target;
     doc.body.classList.add("paseo-vertical-tabs-resizing");
     e.preventDefault();
   };
   const onMove = (e: PointerEvent) => {
-    if (!column) return;
+    if (!column) {
+      setHovered(handleAt(e)); // 손잡이 위에 오면 경계선 강조
+      return;
+    }
     setWidth(e.clientX - column.getBoundingClientRect().left, false);
   };
   const onUp = () => {
@@ -326,11 +347,21 @@ export function enablePointer(onToggleCollapse: () => void): () => void {
     column = null;
     doc.body.classList.remove("paseo-vertical-tabs-resizing");
   };
+  // 손잡이 더블클릭: 기본 너비로
+  const onDblClick = (e: MouseEvent) => {
+    if (!handleAt(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setWidth(DEFAULT_W, true);
+  };
   doc.addEventListener("pointerdown", onDown, true);
   doc.addEventListener("pointermove", onMove, true);
   doc.addEventListener("pointerup", onUp, true);
   doc.addEventListener("pointercancel", onUp, true);
+  doc.addEventListener("dblclick", onDblClick, true);
   return () => {
+    doc.removeEventListener("dblclick", onDblClick, true);
+    setHovered(null);
     doc.removeEventListener("pointerdown", onDown, true);
     doc.removeEventListener("pointermove", onMove, true);
     doc.removeEventListener("pointerup", onUp, true);

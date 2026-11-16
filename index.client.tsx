@@ -1,28 +1,43 @@
 import { useEffect } from "react";
-import { defineTranslations, type PluginButtonRegistration, type PluginClientContext } from "@getpaseo/plugin/client";
+import { defineTranslations, type PluginClientContext } from "@getpaseo/plugin/client";
 import { useToast } from "@getpaseo/plugin/client/react-native";
-import { acquire, isCollapsed, isOn, setCollapsed, snapshot, toggle } from "./client/layout";
+import { acquire, isCollapsed, setCollapsed, snapshot, toggle } from "./client/layout";
+import { createSettingsScreen } from "./client/settings-screen";
 import { domDumpRpc, hostIdRpc } from "./shared/contracts";
 
 const text = defineTranslations({
   resources: {
     en: {
-      toHorizontal: "Switch to horizontal tabs",
-      toVertical: "Switch to vertical tabs",
       toggle: "Toggle vertical tabs",
       collapse: "Collapse/expand vertical tabs",
       dump: "Vertical tabs: dump DOM (debug)",
       unsupported: "Vertical tabs don't support this Paseo version yet, so horizontal tabs are shown.",
       toastBridge: "Vertical tabs notifications",
+      settingsTitle: "Vertical tabs",
+      useVertical: "Use vertical tabs",
+      useVerticalHint: "Show workspace tabs in a column on the left. Saved on this device.",
+      collapsed: "Collapse to icons",
+      collapsedHint: "Keep only tab icons in a narrow rail. Also the ‹ / › button at the top of the column.",
+      width: "Column width",
+      widthHint: "You can also drag the column's right edge; double-click it to reset.",
+      widthDefault: "default",
+      webOnly: "Vertical tabs work on desktop and web only.",
     },
     ko: {
-      toHorizontal: "가로 탭으로 전환",
-      toVertical: "세로 탭으로 전환",
       toggle: "세로 탭 전환",
       collapse: "세로 탭 접기/펼치기",
       dump: "세로 탭 DOM 덤프(디버그)",
       unsupported: "세로 탭이 아직 이 Paseo 버전을 지원하지 않아 가로 탭으로 표시합니다.",
       toastBridge: "세로 탭 알림",
+      settingsTitle: "세로 탭",
+      useVertical: "세로 탭 사용",
+      useVerticalHint: "워크스페이스 탭을 왼쪽 세로 컬럼으로 표시합니다. 이 기기에 저장됩니다.",
+      collapsed: "아이콘만 보기(접기)",
+      collapsedHint: "좁은 레일에 탭 아이콘만 남깁니다. 컬럼 맨 위 ‹ / › 버튼으로도 바꿀 수 있습니다.",
+      width: "컬럼 너비",
+      widthHint: "컬럼 오른쪽 경계를 드래그해도 바뀌고, 더블클릭하면 기본값으로 돌아갑니다.",
+      widthDefault: "기본",
+      webOnly: "세로 탭은 데스크톱·웹에서만 동작합니다.",
     },
   },
 });
@@ -46,10 +61,6 @@ function ToastBridge() {
   return null;
 }
 
-function button(on: boolean) {
-  return { title: text.message(on ? "toHorizontal" : "toVertical"), icon: on ? "PanelTop" : "PanelLeft" };
-}
-
 function debugEnabled(): boolean {
   try {
     return localStorage.getItem(DEBUG_KEY) === "1";
@@ -59,11 +70,8 @@ function debugEnabled(): boolean {
 }
 
 export default function contribute(client: PluginClientContext) {
-  const buttons = new Map<string, PluginButtonRegistration<ReturnType<typeof text.message>>>();
   const { release, setHost } = acquire(
-    (on) => {
-      for (const b of buttons.values()) b.update(button(on));
-    },
+    () => {},
     () => shared.__paseoVerticalTabsToast?.error(client.i18n.t(text, "unsupported")),
   );
   // 이 호스트의 워크스페이스에만 적용한다. serverId를 모르면(조회 실패) 아무 데도 적용하지 않는다.
@@ -73,18 +81,10 @@ export default function contribute(client: PluginClientContext) {
     .catch((error) => console.warn("[vertical-tabs] host id unavailable; vertical tabs stay off for this host", error));
   const toggleCollapse = () => setCollapsed(!isCollapsed());
 
-  // 워크스페이스 헤더마다 토글 버튼. 새 워크스페이스는 구독으로 따라간다.
-  const ensure = (workspaceId: string) => {
-    if (buttons.has(workspaceId)) return;
-    buttons.set(workspaceId, client.addHeaderButton({ id: `toggle-${workspaceId}`, workspaceId, button: { ...button(isOn()), behavior: { kind: "action", onPress: toggle } } }));
-  };
-  void client.paseo.workspaces.list({}).then((r) => r.entries.forEach((w) => ensure(w.id))).catch(() => {});
-  const unsubscribe = client.paseo.workspaces.subscribe((u) => {
-    if (u.kind === "upsert") ensure(u.workspace.id);
-  });
-
+  // 켜기/끄기는 ⌘K와 설정 화면, 접기는 컬럼 맨 위 버튼과 ⌘K. 헤더 버튼은 두지 않는다(좁은 창에서 헤더가 붐빔).
   const cleanups = [
     client.addSidebarFooterItem({ id: "toast-bridge", title: text.message("toastBridge"), Component: ToastBridge }),
+    client.addSettingsScreen({ id: "settings", title: text.message("settingsTitle"), icon: "PanelLeft", Component: createSettingsScreen(text) }),
     client.addCommandCenterItem({ id: "toggle", title: text.message("toggle"), icon: "PanelLeft", context: "workspace", onSelect: toggle }),
     client.addCommandCenterItem({ id: "collapse", title: text.message("collapse"), icon: "PanelLeftClose", context: "workspace", onSelect: toggleCollapse }),
   ];
@@ -104,9 +104,7 @@ export default function contribute(client: PluginClientContext) {
   }
 
   return () => {
-    unsubscribe();
     for (const cleanup of cleanups) cleanup();
-    for (const b of buttons.values()) b.remove();
     release();
   };
 }
