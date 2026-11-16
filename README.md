@@ -1,17 +1,30 @@
 # paseo-vertical-tabs
 
-A Paseo plugin that turns the workspace's horizontal tab bar into vertical tabs on the left. Tabs stack in a 220px column on the left, and the session (agent) view sits on the right.
+A Paseo plugin that turns the workspace's horizontal tab bar into vertical tabs on the left. Tabs stack in a resizable column on the left, and the session sits on the right.
 
-- Toggle horizontal/vertical: the `가로 탭으로 전환` / `세로 탭으로 전환` (switch to horizontal / vertical tabs) button in the workspace header, or ⌘K `세로 탭 전환` (toggle vertical tabs). The state is saved in the app's localStorage and is on by default right after install.
-- How it works: the SDK has no layout API, so the plugin injects CSS targeting the app DOM (`data-testid`) through a `<style>` element. Desktop and web only, and it can break when a Paseo update changes the DOM. When that happens, run ⌘K `세로 탭 DOM 덤프(개발용)` (vertical tabs DOM dump, for development) to save `~/.paseo/vertical-tabs/tabs.html`, then realign the selectors.
-- Collapse/expand: the `‹`/`›` button at the top of the panel, or ⌘K `세로 탭 접기/펼치기` (collapse/expand vertical tabs). When collapsed, only the tab icons (status dots) remain in a 36px rail, and clicking still switches tabs.
-- Width: drag the right edge of the vertical tab column to resize it (140–600px, saved).
-- The plugin can't touch the tab row's `...` (split/maximize menu), so a header button is used instead.
+- **Toggle horizontal/vertical:** the header button (`Switch to horizontal tabs` / `Switch to vertical tabs`) or ⌘K `Toggle vertical tabs`. Saved per device; on by default after install.
+- **Collapse/expand:** the `‹`/`›` button at the top of the column, or ⌘K `Collapse/expand vertical tabs`. Collapsed, a 36px rail keeps the tab icons (status dots), and clicking still switches tabs.
+- **Width:** drag the column's right edge (140–600px, saved).
+- **Reorder by drag:** drop on the top half of a tab to place before it, the bottom half to place after it. A horizontal line shows where the tab will land.
+- **Languages:** English and Korean, following the app language.
+- **Only on its own host:** when the app is connected to several hosts, vertical tabs apply only to workspaces of the host where the plugin is installed. Workspaces of other hosts keep Paseo's horizontal tabs.
+
+## Limits
+
+- Desktop and web only. Paseo's plugin SDK has no layout API, so the plugin injects CSS that targets the app DOM (`data-testid`). iOS and Android keep horizontal tabs.
+- A Paseo update can change that DOM. The plugin checks the layout once tabs are on screen; if the session doesn't sit to the right of the tabs, it falls back to horizontal tabs for that run and shows a notice. Your setting is kept, so vertical tabs return once a compatible version is installed.
+- Paseo decides where a dragged tab lands from horizontal positions only. While you drag over a tab, the plugin adjusts the pointer's horizontal position so the drop follows the top/bottom half of the tab. Outside the tab column (for example, dropping onto a pane to split it), events pass through unchanged.
+
+## Development
 
 ```sh
 npm install
 npm run typecheck
+node --experimental-strip-types client/drag.check.mjs
+node --experimental-strip-types client/layout.check.mjs
 paseo plugin install /path/to/paseo-vertical-tabs
 ```
 
-Tested with Paseo 0.12.0 (Electron 44).
+If the layout breaks after a Paseo update, run `localStorage.setItem("paseo-vertical-tabs:debug", "1")` in the developer console and reload. ⌘K `Vertical tabs: dump DOM (debug)` then saves the tab area markup to `~/.paseo/vertical-tabs/tabs.html` for realigning the selectors.
+
+Tested with Paseo 0.15.4 (Electron).
